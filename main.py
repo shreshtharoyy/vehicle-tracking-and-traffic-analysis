@@ -1,4 +1,5 @@
 import cv2
+import os
 import time
 from ultralytics import YOLO
 import supervision as sv
@@ -11,6 +12,10 @@ v1 = cv2.VideoCapture("videos/vd1.mp4")
 ret, frame0 = v1.read()
 
 H, W = frame0.shape[:2]
+
+os.makedirs("outputs", exist_ok=True)
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+out = cv2.VideoWriter("outputs/traffic_analysis_output.mp4", fourcc, 20.0, (W, H))
 
 box_annotator = sv.BoxAnnotator()
 label_annotator = sv.LabelAnnotator()
@@ -64,6 +69,17 @@ while True:
     car_count = vehicle_class.count("car")
     truck_count = vehicle_class.count("truck")
 
+    traffic_density = len(detections.tracker_id)
+    if traffic_density < 5:
+        traffic_status = "LOW"
+
+    elif traffic_density < 10:
+        traffic_status = "MEDIUM"
+
+    else:
+        traffic_status = "HIGH"
+
+
     labels = [
         f"ID {tracker_id} | {confidence: .2f} | {speed} | {vehicle_type}"
         for tracker_id, confidence, speed, vehicle_type in zip(detections.tracker_id, detections.confidence, speed_labels, vehicle_class)
@@ -109,12 +125,23 @@ while True:
         frame, f"FPS: {fps:.2f}", (30,180), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
     )
 
+    cv2.putText(
+    frame,
+    f"Traffic: {traffic_status}",
+    (30, 220),
+    cv2.FONT_HERSHEY_SIMPLEX,
+    1,
+    (0, 255, 0),
+    2
+    )
+
+    out.write(frame)
     cv2.imshow("Traffic Analytics System", frame)
 
     if cv2.waitKey(1) & 0xFF==ord("q"):
         break
     
-
 v1.release()
+out.release()
 cv2.destroyAllWindows()
 
